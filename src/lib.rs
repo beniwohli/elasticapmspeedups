@@ -7,10 +7,12 @@ use std::cmp;
 #[pyfunction]
 #[pyo3(text_signature = "(s)")]
 fn read_lines_from_file(path: &str, lineno: usize, context_lines: usize) -> () {
-    let reader = io::BufReader::new(File::open("input").expect("Cannot open file"));
+    let reader = io::BufReader::new(File::open(path).expect("Cannot open file"));
     let start = cmp::max(0, lineno - context_lines);
-    println!("something spicy")
-    
+    let lines_iter = reader.lines().skip(start).take(context_lines * 2 + 1).map(|l| l.unwrap());
+    for line in lines_iter {
+        println!("{}",line);
+    }
 }
 
 #[pyfunction]
