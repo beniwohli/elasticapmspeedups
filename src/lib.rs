@@ -7,15 +7,22 @@ use regex::Regex;
 
 #[pyfunction]
 #[pyo3(text_signature = "(s)")]
-fn read_lines_from_file(path: &str, lineno: usize, context_lines: usize) -> Vec<String> {
-    let reader = io::BufReader::new(File::open(path).expect("Cannot open file"));
+fn read_lines_from_file(path: &str, lineno: usize, context_lines: usize) -> (Vec<String>, String, Vec<String>) {
     let start = cmp::max(0, lineno - context_lines);
-    let lines_iter = reader.lines().skip(start).take(context_lines * 2 + 1).map(|l| l.unwrap());
-    let mut lines = Vec::<String>::new();
-    for line in lines_iter {
-        lines.push(line.to_string())
+    let pre_context = get_lines(path, start, context_lines);
+    let main_line = get_lines(path, (start + context_lines), 1).first().unwrap().to_string();
+    let post_context = get_lines(path, (start + context_lines + 1), context_lines);
+    (pre_context, main_line, post_context)
+}
+
+fn get_lines(path: &str, skip:usize, count: usize) -> Vec<String> {
+    let reader = io::BufReader::new(File::open(path).expect("Cannot open file"));
+    let lines = reader.lines().skip(skip).take(count).map(|l| l.unwrap());
+    let mut values = Vec::<String>::new();
+    for line in lines {
+        values.push(line.to_string())
     }
-    lines
+    values
 }
 
 
