@@ -2,7 +2,6 @@ use pyo3::prelude::*;
 use std::fs::File;
 use std::io::{self, BufRead};
 use std::path::Path;
-use std::cmp;
 use regex::Regex;
 use std::collections::HashMap;
 
@@ -16,13 +15,15 @@ fn read_lines_from_file(path: &str, lineno: usize, context_lines: usize) -> (Vec
     };
     let upper_bound = lineno_zero + context_lines;
     let offset = lineno_zero - lower_bound;
-    let lines = get_lines(path, lower_bound, upper_bound + 1);
+    let lines = get_lines(path, lower_bound, upper_bound - lower_bound + 1);
     let pre_context = &lines[0..offset];
     let main_line = &lines[offset];
-    let mut post_context = &Vec::<String>::new();
-    if lines.len() > offset {
-        let post_context = &lines[offset + 1..];
-    } 
+    let empty =  &Vec::<String>::new();
+    let post_context = if lines.len() > offset {
+        &lines[offset + 1..]
+    } else{
+        empty
+    };
     (pre_context.to_vec(), main_line.to_string(), post_context.to_vec())
 }
 
