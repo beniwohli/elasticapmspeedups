@@ -25,7 +25,17 @@ fn get_lines(path: &str, skip:usize, count: usize) -> Vec<String> {
     values
 }
 
-
+#[pyfunction]
+fn walk_stack(frame: &PyAny) -> Vec<&PyAny> {
+    let mut frames = Vec::<&PyAny>::new();
+    let mut current_frame: &PyAny = frame;
+    frames.push(current_frame);
+    while current_frame.hasattr("f_back").unwrap() {
+        frames.push(current_frame);
+        current_frame = current_frame.getattr("f_back").unwrap()
+    }
+    frames
+}
 
 fn is_library_frame(absolute_path: String, include_paths: Vec<String>, exclude_paths: Vec<String>) -> bool {
     if (!include_paths.is_empty()) && get_path_regex(include_paths).is_match(&absolute_path) {
@@ -47,5 +57,6 @@ fn get_path_regex(paths: Vec<String>) -> Regex {
 #[pymodule]
 fn elasticapmspeedups(_py: Python, m: &PyModule) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(read_lines_from_file, m)?)?;
+    m.add_function(wrap_pyfunction!(walk_stack, m)?)?;
     Ok(())
 }
