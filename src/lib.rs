@@ -2,18 +2,29 @@ use pyo3::prelude::*;
 use std::fs::File;
 use std::io::{self, BufRead};
 use std::path::Path;
-use std::cmp;
 use regex::Regex;
 use std::collections::HashMap;
 
 #[pyfunction]
 #[pyo3(text_signature = "(s)")]
 fn read_lines_from_file(path: &str, lineno: usize, context_lines: usize) -> (Vec<String>, String, Vec<String>) {
-    let start = cmp::max(0, lineno - context_lines);
-    let pre_context = get_lines(path, start, context_lines);
-    let main_line = get_lines(path, start + context_lines, 1).first().unwrap().to_string();
-    let post_context = get_lines(path, start + context_lines + 1, context_lines);
-    (pre_context, main_line, post_context)
+    let lineno_zero = lineno - 1;
+    let lower_bound = match lineno_zero.checked_sub(context_lines) {
+        None => 0,
+        Some(i) => i
+    };
+    let upper_bound = lineno_zero + context_lines;
+    let offset = lineno_zero - lower_bound;
+    let lines = get_lines(path, lower_bound, upper_bound - lower_bound + 1);
+    let pre_context = &lines[0..offset];
+    let main_line = &lines[offset];
+    let empty =  &Vec::<String>::new();
+    let post_context = if lines.len() > offset {
+        &lines[offset + 1..]
+    } else{
+        empty
+    };
+    (pre_context.to_vec(), main_line.to_string(), post_context.to_vec())
 }
 
 fn get_lines(path: &str, skip:usize, count: usize) -> Vec<String> {
