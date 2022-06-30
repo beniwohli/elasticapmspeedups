@@ -4,21 +4,54 @@ use std::io::{self, BufRead};
 use std::path::Path;
 use std::cmp;
 use regex::Regex;
+use std::collections::HashMap;
 
 #[pyfunction]
 #[pyo3(text_signature = "(s)")]
-fn read_lines_from_file(path: &str, lineno: usize, context_lines: usize) -> Vec<String> {
-    let reader = io::BufReader::new(File::open(path).expect("Cannot open file"));
+fn read_lines_from_file(path: &str, lineno: usize, context_lines: usize) -> (Vec<String>, String, Vec<String>) {
     let start = cmp::max(0, lineno - context_lines);
-    let lines_iter = reader.lines().skip(start).take(context_lines * 2 + 1).map(|l| l.unwrap());
-    let mut lines = Vec::<String>::new();
-    for line in lines_iter {
-        lines.push(line.to_string())
-    }
-    lines
+    let pre_context = get_lines(path, start, context_lines);
+    let main_line = get_lines(path, start + context_lines, 1).first().unwrap().to_string();
+    let post_context = get_lines(path, start + context_lines + 1, context_lines);
+    (pre_context, main_line, post_context)
 }
 
+fn get_lines(path: &str, skip:usize, count: usize) -> Vec<String> {
+    let reader = io::BufReader::new(File::open(path).expect("Cannot open file"));
+    let lines = reader.lines().skip(skip).take(count).map(|l| l.unwrap());
+    let mut values = Vec::<String>::new();
+    for line in lines {
+        values.push(line.to_string())
+    }
+    values
+}
 
+#[pyfunction]
+fn walk_stack(frame: &PyAny) -> Vec<&PyAny> {
+    let mut frames = Vec::<&PyAny>::new();
+    let mut current_frame: &PyAny = frame;
+    frames.push(current_frame);
+    while current_frame.hasattr("f_back").unwrap() {
+        frames.push(current_frame);
+        current_frame = current_frame.getattr("f_back").unwrap()
+    }
+    frames
+}
+
+#[pyfunction]
+fn dictate(dictish: &PyAny) -> HashMap<String, String> {
+    let mut result = HashMap::<String, String>::new();
+    let mut keys = Vec::<String>::new();
+    if dictish.hasattr("iterkeys").unwrap() {
+        keys = dictish.getattr("iterkeys").unwrap().extract().unwrap();
+    } else {
+        keys = dictish.getattr("keys").unwrap().extract().unwrap();
+    }
+    for key in keys {
+        result.insert(key.to_string(), dictish.getattr(key.to_string()).unwrap().to_string());
+    }
+    result
+}
 
 fn is_library_frame(absolute_path: String, include_paths: Vec<String>, exclude_paths: Vec<String>) -> bool {
     if (!include_paths.is_empty()) && get_path_regex(include_paths).is_match(&absolute_path) {
@@ -40,5 +73,7 @@ fn get_path_regex(paths: Vec<String>) -> Regex {
 #[pymodule]
 fn elasticapmspeedups(_py: Python, m: &PyModule) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(read_lines_from_file, m)?)?;
+    m.add_function(wrap_pyfunction!(walk_stack, m)?)?;
+    m.add_function(wrap_pyfunction!(dictate, m)?)?;
     Ok(())
 }
